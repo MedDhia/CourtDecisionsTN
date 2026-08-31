@@ -1,0 +1,9 @@
+# Staging area for scripts/fetch.py; the archived copies live in
+# decisions/pdf and publications/pdf.
+downloads/
+
+# Cached OCR readings, rebuildable and large.
+.ocr-cache/
+
+__pycache__/
+*.pyc
