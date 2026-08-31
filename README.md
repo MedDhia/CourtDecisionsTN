@@ -9,12 +9,13 @@ Everything here is built by the scripts in `scripts/` and can be rebuilt from
 the court's site with three commands. Nothing was transcribed or coded by hand.
 
 ```
-decisions/pdf/     the judgments, exactly as downloaded
+decisions/pdf/     the 27 judgments published whole, exactly as downloaded
 decisions/txt/     one UTF-8 text file per judgment
-publications/      the court's other PDFs (annual reports, colloquia, schedules)
-data/decisions.csv the coded dataset — one row per judgment
-data/decisions.json    the same, as JSON
-data/codebook.md   what every variable means
+digests/txt/       the 522 decisions reported in the annual reports, one file each
+publications/      the reports themselves, and the court's other PDFs
+data/decisions.csv the judgments, coded — one row each
+data/digests.csv   the digested decisions, coded — one row each
+data/codebook.md   what every variable in both tables means
 data/sources.json  every PDF link found on the site, with its checksum
 data/extraction.json  how each document's text was obtained, and its quality score
 scripts/           the pipeline
@@ -22,8 +23,14 @@ scripts/           the pipeline
 
 ## What is in the corpus
 
-The court publishes 43 PDFs. 27 of them are individual judgments; the rest are
-institutional documents and are kept separately under `publications/`.
+**549 decisions in two forms.** The court publishes 43 PDFs. 27 are individual
+judgments, published whole. Three others are its annual reports, and those
+report a further **522 decisions** in digest form — a headnote, a citation, and
+the passage of the reasoning the court wanted on the record. The two are coded
+into separate tables, because an extract is not the same evidence as a
+judgment; see [Splitting the annual reports](#splitting-the-annual-reports).
+
+### The 27 judgments published whole
 
 The judgments run from **March 2016 to October 2020**. 14 were decided by the
 joined chambers (الدوائر المجتمعة), the court's plenary formation sitting 40 to
@@ -37,15 +44,32 @@ This is the court's *selection* of its own decisions, not a docket: it publishes
 the judgments it considers significant. Treat the corpus as a curated sample,
 not a population.
 
-### What is deliberately not coded
+### Splitting the annual reports
 
-`publications/` contains the court's annual reports for 2017, 2019 and 2020
-(the 2019 one alone runs to 592 pages). They are digests: they quote and
-discuss hundreds of decisions, in narrative prose, under thematic headings,
-with no consistent per-decision delimiter and no bench named for most of them.
-They are archived here as PDF and text, but splitting them into individual
-coded decisions would mean inventing boundaries the documents do not contain,
-so it has not been attempted.
+The reports for 2017, 2019 and 2020 run to 1,556 pages between them and report
+522 decisions, from **October 2009 to November 2020**.
+
+Searching their text for decision boundaries finds nothing, which is misleading:
+the boundaries are typographic, not lexical. Each decision is introduced by a
+citation line — always bold, always opening with `قرار`, always carrying a case
+number and a date — under a bold headnote, above the extract set in the body
+face. That line is the seam, and `scripts/split_reports.py` cuts on it.
+
+For decisions of an ordinary chamber the citation also names the chamber, the
+presiding judge, the counsellors, the prosecutor and the clerk, so those rows
+code as fully as the standalone judgments do (president on 442 of 451). For the
+56 plenary decisions the reports name no bench at all, and those fields stay
+empty.
+
+Seven of the 27 standalone judgments are also digested in a report, which gives
+the two pipelines an independent check against each other: **case number, date,
+formation and chamber agree on all seven**. `full_text_id` links them.
+
+Two things are deliberately weaker in `digests.csv`, and the codebook says so:
+`outcome` is left empty on 519 of 522 rows because the extracts quote the
+reasoning and stop before the order — filling it from the reasoning would have
+produced plausible, wrong values — and 30 rows are marked `repeat_of` where a
+report discusses the same decision twice under different headings.
 
 ### Missing files
 
@@ -74,10 +98,21 @@ Such an expansion is identifiable in the raw character stream: only its last
 character carries the glyph's real bounding box, the rest are zero-width markers
 pinned to its edge. `scripts/pdf_text.py` re-reverses each of those groups.
 
-**2. Fragments joined in the wrong direction.** PyMuPDF splits one printed line
-wherever the font or run direction changes, so `تاريخ الحكم 14/02/2019` arrives
-as five fragments. Joining them left to right puts the year first. They are
-joined right to left when the line is Arabic.
+**2. Runs handed over in the wrong order.** Each directional run of a line comes
+back internally correct, but the runs themselves arrive left to right, so a
+right-to-left line is inside out. The annual reports' citation line
+
+```
+قرار تعقيبي عدد 66968.2018 بتاريخ 12 نوفمبر 2019 صادر عن الدائرة
+```
+
+arrives beginning at `صادر عن الدائرة`, with the case number and date shuffled
+in between — which is exactly why searching the reports for decision boundaries
+came up empty at first. PyMuPDF also splits one printed line into several line
+objects, which have to be rejoined the same way. Both are fixed by ordering
+right-to-left on an Arabic line, and the spacing between runs is then re-derived
+from the gaps on the page: a space written at the right edge of a run ends up on
+its wrong side once the run order is reversed.
 
 **3. Corrupt ToUnicode maps.** Some files simply lie about what their glyphs
 mean, and no amount of re-ordering fixes that:
@@ -101,9 +136,9 @@ compared, on words and on numbers separately. The text layer is kept only where
 it agrees with what the page renders; otherwise the OCR is used.
 
 The word-agreement score turns out to be sharply bimodal over this corpus.
-Sorted, the 27 judgments run 0.065, 0.089, 0.41 … 0.69, then jump to 0.88, 0.89
-… 0.94, with nothing between **0.69 and 0.88**. The threshold sits in that gap,
-and every file below it turns out on inspection to have a damaged font.
+Sorted, the 27 judgments run 0.07, 0.09, 0.44 … 0.62, 0.78, then jump to 0.91,
+0.91 … 0.98. The threshold sits in that gap, and every file below it turns out
+on inspection to have a damaged font.
 
 Numbers are scored separately and held to a stricter standard, because a file
 can decode every letter correctly and still get every digit wrong. Four
@@ -137,9 +172,10 @@ Two smaller wrinkles, both discovered the hard way:
 pip install pymupdf
 apt-get install tesseract-ocr tesseract-ocr-ara
 
-python3 scripts/fetch.py          # crawl cassation.tn, download every PDF
-python3 scripts/extract.py        # produce the .txt files, decide text-layer vs OCR
-python3 scripts/code_decisions.py # build data/decisions.csv
+python3 scripts/fetch.py           # crawl cassation.tn, download every PDF
+python3 scripts/extract.py         # produce the .txt files, decide text-layer vs OCR
+python3 scripts/code_decisions.py  # build data/decisions.csv
+python3 scripts/split_reports.py   # split the annual reports, build data/digests.csv
 ```
 
 `fetch.py` walks the site rather than guessing URLs: there is no sitemap, the
@@ -153,8 +189,10 @@ and coding rules can be changed without re-reading every page.
 
 ## Reading the data
 
-`data/decisions.csv` has one row per judgment and is documented field by field
-in [`data/codebook.md`](data/codebook.md). The variables the request asked for:
+`data/decisions.csv` has one row per judgment published whole and
+`data/digests.csv` one row per decision reported in an annual report. Both are
+documented field by field in [`data/codebook.md`](data/codebook.md) and share
+their variable names and conventions. The variables the request asked for:
 
 - **date** — `decision_date`, ISO `YYYY-MM-DD`, taken from the court's own
   sign-off in preference to the header. Three different date formats and two
@@ -186,8 +224,9 @@ disagreement is recorded in `flags` rather than resolved silently.
   `المنجي شلغوم` in one row and `منجي شلغوم` in another. There is no
   authority list to normalise against, so no normalisation is attempted; if
   you need judge-level identifiers, plan to reconcile the strings yourself.
-- 27 decisions is a small corpus. It supports description; it does not support
-  much inference.
+- The digests are extracts the court chose to print, from the decisions it
+  chose to report. Both tables are curated samples of the court's own output,
+  not dockets, and neither supports counting what the court does.
 
 ## Provenance and licence
 

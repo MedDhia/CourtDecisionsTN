@@ -86,3 +86,51 @@ Names are as printed. The court anonymises the *parties* (they appear as
 | `date_from_title` | No date in the document body; the date in the court's own publication title was used. |
 | `date_mismatch:title=…` | The document and the court's publication title give different dates. `decision_date` reports the document. |
 | `bench_not_separated` | A plenary sign-off that runs the chamber presidents and the counsellors together under one heading, so every judge below the president is in `chamber_presidents` and `counselors` is empty. All the names are present; only the split between the two roles is missing. Use `bench_size` for comparisons. |
+
+---
+
+# Codebook — `data/digests.csv`
+
+One row per decision reported in the court's annual reports (`publications/pdf/2019.pdf`,
+`2020.pdf`, `rapport-annuel-2017.pdf`), 522 in total.
+
+**These are extracts, not full judgments.** For each decision the report prints
+a headnote, a citation line, and the passage of the reasoning the court wanted
+on the record — typically one to four pages of a judgment that ran longer. They
+are kept apart from `decisions.csv` for that reason. Do not pool the two
+without deciding whether an extract is evidence of the same kind as a judgment.
+
+Fields shared with `decisions.csv` — `case_number`, `case_year`,
+`decision_date`, `decision_year`, `decision_month`, `court`, `court_seat`,
+`formation`, `chamber_number`, `president`, `counselors`, `n_counselors`,
+`prosecutor`, `clerk`, `origin_court`, `origin_city`, `subject_matter`,
+`outcome` — carry the same meanings and the same conventions, including that
+empty means the document does not say.
+
+| Variable | Type | Description |
+|---|---|---|
+| `digest_id` | string | Stable key, `<report>-<sequence>` in the order the report prints them (e.g. `2019-035`). |
+| `headnote` | string | The court's own summary of the point decided, printed above the citation. Court-supplied, not derived. |
+| `citation` | string | The citation line verbatim. Everything the report states about the case number, date and bench is in here, so it is kept for checking the coded fields against. |
+| `source_report` | `2017` \| `2019` \| `2020` | Which annual report the digest is from. |
+| `first_page`, `last_page` | integer | Page range within that report's PDF (1-based), so any row can be checked against the original. |
+| `full_text_id` | string | `decision_id` of the same judgment in `decisions.csv`, where the court also publishes it whole. 7 rows. |
+| `n_chars`, `txt_path` | | Size and location of the extracted text. |
+| `flags` | string | `repeat_of:<digest_id>` where the report discusses the same decision a second time under a different heading, with a different extract. 30 rows. Both are kept; count one. |
+
+## What is weaker here than in `decisions.csv`
+
+- **`outcome` is almost always empty (3 of 522).** The digests quote the
+  reasoning, not the order. Only five reach `لهذه الأسباب`, and without the
+  operative part a word like `رفض` in the text is usually the court describing
+  an argument or the judgment below, not its own disposition. Coding it from
+  the reasoning would have filled the column with plausible, wrong values.
+- **The bench is only stated for chamber decisions.** The reports name the
+  chamber, president, counsellors, prosecutor and clerk for decisions of an
+  ordinary chamber (president on 442 of 451 such rows), and name none of them
+  for the 56 plenary decisions. That is the source's practice, not a coding
+  failure.
+- **`origin_court` / `origin_city` are mostly empty (46 of 522).** The extracts
+  rarely restate which court was appealed from.
+- **`case_year` is only present where the citation prints it** (95 rows), in
+  the forms `عدد 80441.2019` or `عـ2016 / 370 ـدد`.

@@ -103,6 +103,11 @@ _NUMERIC = r"(\d{1,4})\s*[/\-.]\s*(\d{1,2})\s*[/\-.]\s*(\d{1,4})"
 def _dates_in(fragment):
     """Every date in a fragment of folded text, in the order they appear."""
     out = []
+    # Tunisian usage writes the first of the month as "غرة أكتوبر 2019".
+    for m in re.finditer(r"غرة\s*(" + MONTH_RE + r")\s*(\d{4})", fragment):
+        iso = _iso(1, MONTHS[m.group(1)], int(m.group(2)))
+        if iso:
+            out.append((m.start(), iso))
     for m in re.finditer(_DAY_MONTH_YEAR, fragment):
         iso = _iso(int(m.group(1)), MONTHS[m.group(2)], int(m.group(3)))
         if iso:
@@ -239,14 +244,16 @@ UNITS = {"الاولى": 1, "الحادية": 1, "الثانية": 2, "الثا�
          "التاسعة": 9, "العاشرة": 10}
 
 
-def chamber_number(text):
+def chamber_number(text, block=None):
     """Number of the deciding chamber, read from the sign-off.
 
     Spelled out ("الدائرة السادسة والعشرين" -> 26) or in figures ("الدائرة
     الجزائية عدد 28").  Only the sign-off counts: chambers get cited by number
-    throughout the reasoning, and those are other courts' chambers.
+    throughout the reasoning, and those are other courts' chambers.  Callers
+    holding the relevant passage already -- the annual reports state the bench
+    in a single citation line -- pass it in as ``block``.
     """
-    block = signoff_block(text)
+    block = fold(block) if block is not None else signoff_block(text)
     if "الدوائر المجتمعة" in block:
         return None  # sat as the full court, not as a numbered chamber
 
@@ -385,7 +392,7 @@ def signoff_block(text):
     return folded[starts[-1]:] if starts else folded[-2500:]
 
 
-def panel(text):
+def panel(text, block=None):
     """The bench, as named in the sign-off.
 
     Two formats occur.  An ordinary chamber names a president and two
@@ -394,7 +401,7 @@ def panel(text):
     counsellors -- so chamber presidents are recorded separately rather than
     folded in with the counsellors.
     """
-    block = signoff_block(text)
+    block = fold(block) if block is not None else signoff_block(text)
     out = {"president": "", "chamber_presidents": [], "counselors": [],
            "prosecutor": "", "clerk": ""}
 
