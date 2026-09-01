@@ -134,3 +134,49 @@ empty means the document does not say.
   rarely restate which court was appealed from.
 - **`case_year` is only present where the citation prints it** (95 rows), in
   the forms `عدد 80441.2019` or `عـ2016 / 370 ـدد`.
+
+---
+
+# Codebook — `data/all_decisions.csv`
+
+The two tables above, stacked: 549 rows, one per decision record. Built by
+`scripts/merge_tables.py`, which only reads — `decisions.csv` and `digests.csv`
+remain the sources of record and are unchanged.
+
+Use this table for anything that spans both kinds of record. Use the two source
+tables when the distinction between a full judgment and an extract of one
+matters to the question.
+
+## Columns that only exist here
+
+| Variable | Type | Description |
+|---|---|---|
+| `record_id` | string | Unique key. The `decision_id` or `digest_id` from the source table, unchanged, so any row joins straight back. |
+| `source_type` | `full_text` \| `digest` | Whether the row is a judgment published whole (27) or a decision reported in extract by an annual report (522). It governs which of the columns below can be populated at all. |
+| `duplicate_of` | string | `record_id` of the row this one repeats, empty if the row is the first record of its decision. **Filter on an empty `duplicate_of` for one row per distinct decision: 512 of the 549.** |
+
+Two things produce a repeat, and `duplicate_of` covers both: 7 judgments the
+court publishes whole *and* digests in a report (the full text is kept as the
+canonical row, since it is the more complete record), and 30 decisions a report
+discusses twice under different headings. No decision is reported in two
+different reports — each covers its own judicial year.
+
+## Columns that only apply to one source
+
+Empty in the other, by construction rather than by omission:
+
+| Only on `full_text` rows | Only on `digest` rows |
+|---|---|
+| `title`, `n_pages`, `extraction_method`, `ocr_agreement`, `source_url`, `sha256`, `pdf_path` | `headnote`, `citation`, `source_report`, `first_page`, `last_page`, `full_text_id` |
+
+`chamber_presidents` is in practice full-text-only too: the annual reports do
+not name the bench of a plenary sitting.
+
+## One column computed here
+
+| Variable | Type | Description |
+|---|---|---|
+| `bench_size` | integer | Judges named on the bench: president + `chamber_presidents` + `counselors`. Carried over where `decisions.csv` already had it, and computed the same way for digest rows so the column means one thing throughout. A digest of a chamber decision gives 3; a plenary judgment published whole gives 40–62; a plenary digest gives 0, because the reports name nobody. |
+
+Every other column has exactly the meaning given for it in the two codebooks
+above, including that empty means the document does not state it.

@@ -15,7 +15,8 @@ digests/txt/       the 522 decisions reported in the annual reports, one file ea
 publications/      the reports themselves, and the court's other PDFs
 data/decisions.csv the judgments, coded — one row each
 data/digests.csv   the digested decisions, coded — one row each
-data/codebook.md   what every variable in both tables means
+data/all_decisions.csv  both of the above stacked, 549 rows
+data/codebook.md   what every variable in all three tables means
 data/sources.json  every PDF link found on the site, with its checksum
 data/extraction.json  how each document's text was obtained, and its quality score
 scripts/           the pipeline
@@ -176,6 +177,7 @@ python3 scripts/fetch.py           # crawl cassation.tn, download every PDF
 python3 scripts/extract.py         # produce the .txt files, decide text-layer vs OCR
 python3 scripts/code_decisions.py  # build data/decisions.csv
 python3 scripts/split_reports.py   # split the annual reports, build data/digests.csv
+python3 scripts/merge_tables.py    # stack both into data/all_decisions.csv
 ```
 
 `fetch.py` walks the site rather than guessing URLs: there is no sitemap, the
@@ -190,9 +192,21 @@ and coding rules can be changed without re-reading every page.
 ## Reading the data
 
 `data/decisions.csv` has one row per judgment published whole and
-`data/digests.csv` one row per decision reported in an annual report. Both are
-documented field by field in [`data/codebook.md`](data/codebook.md) and share
-their variable names and conventions. The variables the request asked for:
+`data/digests.csv` one row per decision reported in an annual report.
+`data/all_decisions.csv` stacks the two — 549 rows, with `source_type` saying
+which kind each row is — for work that spans both; the two source tables remain
+the record and are not modified by the merge. All three are documented field by
+field in [`data/codebook.md`](data/codebook.md) and share their variable names
+and conventions.
+
+The merged table is the one place the overlap between the two corpora is
+visible, so it is the one place it can be miscounted. **549 rows are 512
+distinct decisions**: 7 judgments are published whole *and* digested in a
+report, and 30 are discussed twice in one report under different headings.
+Every repeat carries `duplicate_of` pointing at the row it repeats, so
+filtering on an empty `duplicate_of` gives one row per decision.
+
+The variables the request asked for:
 
 - **date** — `decision_date`, ISO `YYYY-MM-DD`, taken from the court's own
   sign-off in preference to the header. Three different date formats and two
