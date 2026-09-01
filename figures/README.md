@@ -35,5 +35,16 @@ Drawn to the reference palette and rules of the `dataviz` skill:
 paper. The table view every chart is supposed to have is the CSV it was built
 from — `data/all_decisions.csv`, documented in `data/codebook.md`.
 
-Category labels are given in English with the court's own Arabic term beside
-them, shaped for a renderer that does not do bidirectional text itself.
+## Arabic in the labels
+
+Category labels give the English term with the court's own Arabic beside it.
+Matplotlib shapes and orders Arabic itself, so the strings are passed through
+raw — pre-shaping them with `arabic_reshaper` and `python-bidi` applies the
+transform a second time and every word comes out mirrored, which is how the
+first version of these figures was wrong.
+
+The typefaces are **Noto Sans** with **Noto Sans Arabic** behind it, one
+superfamily so the two scripts sit together rather than looking pasted side by
+side, and DejaVu Sans last to close the chain for the few maths symbols
+(`≥`) neither Noto face carries. On Debian/Ubuntu:
+`apt-get install fonts-noto-core`.

@@ -23,10 +23,6 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib import font_manager  # noqa: E402
-
-import arabic_reshaper  # noqa: E402
-from bidi.algorithm import get_display  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "figures")
@@ -48,11 +44,15 @@ SEQUENTIAL = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7",
 
 
 def setup_fonts():
-    for path in font_manager.findSystemFonts():
-        if "NotoNaskhArabic" in path or "NotoSansArabic" in path:
-            font_manager.fontManager.addfont(path)
+    # Noto Sans for Latin and Noto Sans Arabic for the Arabic that falls through
+    # to it: one superfamily, so the two scripts sit together instead of
+    # looking pasted side by side.  Matplotlib shapes and orders the Arabic
+    # itself -- pre-shaping it with arabic_reshaper/bidi applies the transform
+    # a second time and comes out mirrored.
     plt.rcParams.update({
-        "font.family": ["DejaVu Sans", "Noto Naskh Arabic"],
+        # DejaVu closes the chain for the few maths symbols ("≥") that
+        # neither Noto face carries.
+        "font.family": ["Noto Sans", "Noto Sans Arabic", "DejaVu Sans"],
         "font.size": 9,
         "figure.facecolor": SURFACE,
         "axes.facecolor": SURFACE,
@@ -77,12 +77,7 @@ def setup_fonts():
     })
 
 
-def ar(text):
-    """Shape Arabic for a renderer that does not do it itself."""
-    return get_display(arabic_reshaper.reshape(text))
-
-
-SUBHEAD_LINE = 11.5  # points per line of subhead, at 8.5pt with air
+SUBHEAD_LINE = 12.5  # rendered height of one 8.5pt subhead line in Noto Sans
 
 
 def title(ax, headline, subhead=None):
@@ -92,7 +87,7 @@ def title(ax, headline, subhead=None):
         ax.annotate(subhead, xy=(0, 1), xycoords="axes fraction",
                     xytext=(0, 7), textcoords="offset points",
                     fontsize=8.5, color=INK_2, va="bottom", ha="left",
-                    linespacing=1.35)
+                    linespacing=1.15)
     ax.set_title(headline, loc="left",
                  pad=10 + SUBHEAD_LINE * lines + (5 if subhead else 0),
                  fontsize=11.5, fontweight="bold", color=INK)
@@ -156,7 +151,7 @@ def figure_extraction(records):
             xy=(min(r["agreement"] for r in caught) - 0.005,
                 sum(r["digit_agreement"] for r in caught) / len(caught)),
             xytext=(0.40, 0.20), fontsize=8.5, color=INK_2,
-            ha="left", va="center", linespacing=1.35,
+            ha="left", va="center", linespacing=1.2,
             arrowprops=dict(arrowstyle="-", color=AXIS, lw=0.9,
                             shrinkA=2, shrinkB=8))
 
@@ -232,15 +227,15 @@ def figure_coverage(merged):
                 "their extracts stop before the disposition.",
                 xy=(0, 0), xycoords="axes fraction",
                 xytext=(0, -22), textcoords="offset points",
-                fontsize=8.5, color=INK_2, va="top", ha="left", linespacing=1.35)
+                fontsize=8.5, color=INK_2, va="top", ha="left", linespacing=1.15)
     save(fig, "corpus-coverage")
 
 
 # --- 3. when the reported decisions were decided -----------------------------
 
 CHAMBER, PLENARY, UNSTATED = "دائرة", "الدوائر المجتمعة", ""
-SERIES = [(CHAMBER, "Ordinary chamber  " + ar(CHAMBER), BLUE),
-          (PLENARY, "Joined chambers  " + ar(PLENARY), ORANGE),
+SERIES = [(CHAMBER, f"Ordinary chamber  {CHAMBER}", BLUE),
+          (PLENARY, f"Joined chambers  {PLENARY}", ORANGE),
           (UNSTATED, "Not stated", NEUTRAL)]
 
 
@@ -282,9 +277,14 @@ def figure_years(merged):
 
 # --- 4. what areas of law they come from -------------------------------------
 
-SUBJECTS = [("مدني", "Civil"), ("جزائي", "Criminal"), ("تجاري", "Commercial"),
-            ("شغل", "Labour"), ("احوال شخصية", "Personal status"),
-            ("عقاري", "Land and registration"), ("", "Not classified")]
+# (value in the data, English label, the term as the court writes it)
+SUBJECTS = [("مدني", "Civil", "مدني"),
+            ("جزائي", "Criminal", "جزائي"),
+            ("تجاري", "Commercial", "تجاري"),
+            ("شغل", "Labour", "شغل"),
+            ("احوال شخصية", "Personal status", "أحوال شخصية"),
+            ("عقاري", "Land and registration", "عقاري"),
+            ("", "Not classified", "")]
 
 
 def figure_subjects(merged):
@@ -292,14 +292,14 @@ def figure_subjects(merged):
     counts = collections.Counter((r["subject_matter"], r["formation"])
                                  for r in unique)
     totals = {key: sum(counts.get((key, f), 0) for f, _l, _c in SERIES)
-              for key, _ in SUBJECTS}
+              for key, _e, _a in SUBJECTS}
     order = sorted(SUBJECTS, key=lambda s: (s[0] == "", -totals[s[0]]))[::-1]
 
     fig, ax = plt.subplots(figsize=(7.0, 3.9))
     lefts = [0] * len(order)
     gap = 1.8
     for key, label, colour in SERIES:
-        values = [counts.get((s, key), 0) for s, _ in order]
+        values = [counts.get((s, key), 0) for s, _e, _a in order]
         ax.barh(range(len(order)), stacked(values, gap), left=lefts,
                 height=0.38, color=colour, linewidth=0, label=label, zorder=3)
         lefts = [l + v for l, v in zip(lefts, values)]
@@ -308,8 +308,8 @@ def figure_subjects(merged):
         ax.text(total + 3, y, f"{total}", va="center", fontsize=8.5, color=INK_2)
 
     ax.set_yticks(range(len(order)))
-    ax.set_yticklabels([f"{english}  {ar(arabic) if arabic else ''}".strip()
-                        for arabic, english in order], fontsize=9)
+    ax.set_yticklabels([f"{english}  {arabic}".strip()
+                        for _key, english, arabic in order], fontsize=9)
     ax.set_xlabel("Decisions")
     ax.set_xlim(0, max(lefts) * 1.10)
     ax.xaxis.grid(True, zorder=0)

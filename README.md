@@ -179,7 +179,7 @@ python3 scripts/extract.py         # produce the .txt files, decide text-layer v
 python3 scripts/code_decisions.py  # build data/decisions.csv
 python3 scripts/split_reports.py   # split the annual reports, build data/digests.csv
 python3 scripts/merge_tables.py    # stack both into data/all_decisions.csv
-python3 scripts/make_figures.py    # draw figures/ (needs matplotlib)
+python3 scripts/make_figures.py    # draw figures/ (needs matplotlib + fonts-noto-core)
 ```
 
 `fetch.py` walks the site rather than guessing URLs: there is no sitemap, the
