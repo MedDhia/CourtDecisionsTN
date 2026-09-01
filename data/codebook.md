@@ -13,7 +13,7 @@ of being silently resolved.
 | Variable | Type | Description |
 |---|---|---|
 | `decision_id` | string | Stable key. The PDF's file name on the court's server (e.g. `87861`, `80654-80653`). Also the name of the `.pdf` and `.txt` files. |
-| `case_number` | string | Case number (عدد القضية) as printed in the judgment. Decisions issued on joined files carry both numbers separated by `/`. |
+| `case_number` | string | Case number (عدد القضية) as printed in the judgment. Decisions issued on joined files carry both numbers separated by `/`. Empty on 13 digest rows whose citation prints no number. |
 | `case_year` | integer | Year the case was registered, where the header prints it next to the number (e.g. `عـ68182.2019ـدد القضية` → 2019). Distinct from the year of decision. |
 
 ## Date
@@ -92,7 +92,7 @@ Names are as printed. The court anonymises the *parties* (they appear as
 # Codebook — `data/digests.csv`
 
 One row per decision reported in the court's annual reports (`publications/pdf/2019.pdf`,
-`2020.pdf`, `rapport-annuel-2017.pdf`), 522 in total.
+`2020.pdf`, `rapport-annuel-2017.pdf`), 547 in total.
 
 **These are extracts, not full judgments.** For each decision the report prints
 a headnote, a citation line, and the passage of the reasoning the court wanted
@@ -116,30 +116,30 @@ empty means the document does not say.
 | `first_page`, `last_page` | integer | Page range within that report's PDF (1-based), so any row can be checked against the original. |
 | `full_text_id` | string | `decision_id` of the same judgment in `decisions.csv`, where the court also publishes it whole. 7 rows. |
 | `n_chars`, `txt_path` | | Size and location of the extracted text. |
-| `flags` | string | `repeat_of:<digest_id>` where the report discusses the same decision a second time under a different heading, with a different extract. 30 rows. Both are kept; count one. |
+| `flags` | string | `repeat_of:<digest_id>` where the report discusses the same decision a second time under a different heading, with a different extract. 31 rows. Both are kept; count one. |
 
 ## What is weaker here than in `decisions.csv`
 
-- **`outcome` is almost always empty (3 of 522).** The digests quote the
+- **`outcome` is almost always empty (3 of 547).** The digests quote the
   reasoning, not the order. Only five reach `لهذه الأسباب`, and without the
   operative part a word like `رفض` in the text is usually the court describing
   an argument or the judgment below, not its own disposition. Coding it from
   the reasoning would have filled the column with plausible, wrong values.
 - **The bench is only stated for chamber decisions.** The reports name the
   chamber, president, counsellors, prosecutor and clerk for decisions of an
-  ordinary chamber (president on 442 of 451 such rows), and name none of them
-  for the 56 plenary decisions. That is the source's practice, not a coding
+  ordinary chamber (president on 464 of 474 such rows), and name none of them
+  for the 59 plenary decisions. That is the source's practice, not a coding
   failure.
-- **`origin_court` / `origin_city` are mostly empty (46 of 522).** The extracts
+- **`origin_court` / `origin_city` are mostly empty (47 of 547).** The extracts
   rarely restate which court was appealed from.
-- **`case_year` is only present where the citation prints it** (95 rows), in
+- **`case_year` is only present where the citation prints it** (119 rows), in
   the forms `عدد 80441.2019` or `عـ2016 / 370 ـدد`.
 
 ---
 
 # Codebook — `data/all_decisions.csv`
 
-The two tables above, stacked: 549 rows, one per decision record. Built by
+The two tables above, stacked: 574 rows, one per decision record. Built by
 `scripts/merge_tables.py`, which only reads — `decisions.csv` and `digests.csv`
 remain the sources of record and are unchanged.
 
@@ -152,12 +152,12 @@ matters to the question.
 | Variable | Type | Description |
 |---|---|---|
 | `record_id` | string | Unique key. The `decision_id` or `digest_id` from the source table, unchanged, so any row joins straight back. |
-| `source_type` | `full_text` \| `digest` | Whether the row is a judgment published whole (27) or a decision reported in extract by an annual report (522). It governs which of the columns below can be populated at all. |
-| `duplicate_of` | string | `record_id` of the row this one repeats, empty if the row is the first record of its decision. **Filter on an empty `duplicate_of` for one row per distinct decision: 512 of the 549.** |
+| `source_type` | `full_text` \| `digest` | Whether the row is a judgment published whole (27) or a decision reported in extract by an annual report (547). It governs which of the columns below can be populated at all. |
+| `duplicate_of` | string | `record_id` of the row this one repeats, empty if the row is the first record of its decision. **Filter on an empty `duplicate_of` for one row per distinct decision: 536 of the 574.** |
 
 Two things produce a repeat, and `duplicate_of` covers both: 7 judgments the
 court publishes whole *and* digests in a report (the full text is kept as the
-canonical row, since it is the more complete record), and 30 decisions a report
+canonical row, since it is the more complete record), and 31 decisions a report
 discusses twice under different headings. No decision is reported in two
 different reports — each covers its own judicial year.
 

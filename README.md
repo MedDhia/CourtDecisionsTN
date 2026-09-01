@@ -11,11 +11,11 @@ the court's site with three commands. Nothing was transcribed or coded by hand.
 ```
 decisions/pdf/     the 27 judgments published whole, exactly as downloaded
 decisions/txt/     one UTF-8 text file per judgment
-digests/txt/       the 522 decisions reported in the annual reports, one file each
+digests/txt/       the 547 decisions reported in the annual reports, one file each
 publications/      the reports themselves, and the court's other PDFs
 data/decisions.csv the judgments, coded — one row each
 data/digests.csv   the digested decisions, coded — one row each
-data/all_decisions.csv  both of the above stacked, 549 rows
+data/all_decisions.csv  both of the above stacked, 574 rows
 data/codebook.md   what every variable in all three tables means
 data/sources.json  every PDF link found on the site, with its checksum
 data/extraction.json  how each document's text was obtained, and its quality score
@@ -25,9 +25,9 @@ scripts/           the pipeline
 
 ## What is in the corpus
 
-**549 decisions in two forms.** The court publishes 43 PDFs. 27 are individual
+**574 decisions in two forms.** The court publishes 43 PDFs. 27 are individual
 judgments, published whole. Three others are its annual reports, and those
-report a further **522 decisions** in digest form — a headnote, a citation, and
+report a further **547 decisions** in digest form — a headnote, a citation, and
 the passage of the reasoning the court wanted on the record. The two are coded
 into separate tables, because an extract is not the same evidence as a
 judgment; see [Splitting the annual reports](#splitting-the-annual-reports).
@@ -49,18 +49,27 @@ not a population.
 ### Splitting the annual reports
 
 The reports for 2017, 2019 and 2020 run to 1,556 pages between them and report
-522 decisions, from **October 2009 to November 2020**.
+547 decisions, from **October 2009 to November 2020**.
 
 Searching their text for decision boundaries finds nothing, which is misleading:
 the boundaries are typographic, not lexical. Each decision is introduced by a
-citation line — always bold, always opening with `قرار`, always carrying a case
-number and a date — under a bold headnote, above the extract set in the body
+citation line — always bold, always opening with `قرار` and naming what kind of
+decision follows — under a bold headnote, above the extract set in the body
 face. That line is the seam, and `scripts/split_reports.py` cuts on it.
+
+Matching it takes more tolerance than it sounds like. Justification puts spaces
+wherever it likes, so `قرار تعقيبي` arrives as `قرارتعقيبي` or `قرار تع قيبي`
+just as often; the anchor is therefore matched against the line with its
+whitespace squeezed out. Some citations carry a section number in front
+(`4-4 قرار …`), which a footnote marker (`4 قرار …`) must not be mistaken for.
+Some print the case number without the word for it (`قرار تعقيبي 2020/74361`),
+and **a few print no case number at all** — those are kept, with the field
+empty, rather than dropped.
 
 For decisions of an ordinary chamber the citation also names the chamber, the
 presiding judge, the counsellors, the prosecutor and the clerk, so those rows
-code as fully as the standalone judgments do (president on 442 of 451). For the
-56 plenary decisions the reports name no bench at all, and those fields stay
+code as fully as the standalone judgments do (president on 464 of 474). For the
+59 plenary decisions the reports name no bench at all, and those fields stay
 empty.
 
 Seven of the 27 standalone judgments are also digested in a report, which gives
@@ -68,9 +77,9 @@ the two pipelines an independent check against each other: **case number, date,
 formation and chamber agree on all seven**. `full_text_id` links them.
 
 Two things are deliberately weaker in `digests.csv`, and the codebook says so:
-`outcome` is left empty on 519 of 522 rows because the extracts quote the
+`outcome` is left empty on 544 of 547 rows because the extracts quote the
 reasoning and stop before the order — filling it from the reasoning would have
-produced plausible, wrong values — and 30 rows are marked `repeat_of` where a
+produced plausible, wrong values — and 31 rows are marked `repeat_of` where a
 report discusses the same decision twice under different headings.
 
 ### Missing files
@@ -195,16 +204,16 @@ and coding rules can be changed without re-reading every page.
 
 `data/decisions.csv` has one row per judgment published whole and
 `data/digests.csv` one row per decision reported in an annual report.
-`data/all_decisions.csv` stacks the two — 549 rows, with `source_type` saying
+`data/all_decisions.csv` stacks the two — 574 rows, with `source_type` saying
 which kind each row is — for work that spans both; the two source tables remain
 the record and are not modified by the merge. All three are documented field by
 field in [`data/codebook.md`](data/codebook.md) and share their variable names
 and conventions.
 
 The merged table is the one place the overlap between the two corpora is
-visible, so it is the one place it can be miscounted. **549 rows are 512
+visible, so it is the one place it can be miscounted. **574 rows are 536
 distinct decisions**: 7 judgments are published whole *and* digested in a
-report, and 30 are discussed twice in one report under different headings.
+report, and 31 are discussed twice in one report under different headings.
 Every repeat carries `duplicate_of` pointing at the row it repeats, so
 filtering on an empty `duplicate_of` gives one row per decision.
 

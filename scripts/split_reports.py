@@ -34,12 +34,18 @@ OUT_CSV = os.path.join(ROOT, "data", "digests.csv")
 OUT_JSON = os.path.join(ROOT, "data", "digests.json")
 DECISIONS = os.path.join(ROOT, "data", "decisions.json")
 
-# A citation line opens with "قرار", possibly after a bullet or dash.
-ANCHOR = re.compile(r"^[\s\-–—«»•·]*قرار\s")
-# It always carries a case number -- "عدد 407", or "عـ2016 / 370 ـدد" once
-# justification kashidas are stripped -- and the year it issued.
-HAS_NUMBER = re.compile(r"عدد|عـ|ـدد")
+# A citation line opens with "قرار" and then names what kind of decision it is.
+# The prefix allows a bullet or a multi-part section number ("4-4 قرار …") but
+# not a bare one, which is how a footnote marker reads ("4 قرار تعقيبي …").
+# Requiring one of the following words is what separates a citation from a
+# mention in the reasoning ("… في قرارها عدد 323 …").
+ANCHOR = re.compile(
+    r"^[\s\-–—«»•·]*(?:\d+(?:[-.]\d+)+[\s\-–—]*)?"
+    r"قرارر?\s*(?=صادر|صدر|تعقيبي|ال?دوائر|عدد|عـ|ع\d|مدني|جزائي|تجاري|شخصي|اجتماعي|عقاري)")
 HAS_YEAR = re.compile(r"(?:19|20)\d{2}")
+# Bibliographic furniture: the reports' footnotes cite decisions in the same
+# words, and are told apart by what they add.
+IS_REFERENCE = re.compile(r"غير\s*منشور|النشرية|ن\.\s*م\s*\.\s*ت|ص\s*\.\s*\d")
 # Where the citation stops and the quoted judgment starts.
 BODY_OPENS = re.compile(r"^[\s«»\"]*(?:حيث|عن\s|أولا|ثانيا|من\s+حيث|و?حيث)")
 
@@ -52,8 +58,19 @@ MAX_CITATION_LINES = 4
 
 
 def is_anchor(text):
-    return bool(ANCHOR.match(text) and HAS_NUMBER.search(text)
-                and HAS_YEAR.search(text))
+    """A citation line introducing a decision.
+
+    Matched against the line with its whitespace squeezed out, because the
+    reports' justification puts spaces wherever it likes -- "قرارتعقيبي" and
+    "قرار تع قيبي" are both the same two words -- and neither spelling should
+    decide whether a decision makes it into the dataset.
+
+    A case number is *not* required: a few citations print only the date and
+    the bench, and dropping them would lose the decision entirely.
+    """
+    squeezed = re.sub(r"\s+", "", text)
+    return bool(ANCHOR.match(squeezed) and HAS_YEAR.search(text)
+                and not IS_REFERENCE.search(text))
 
 
 # Folio numbers and rules carry no content, and a citation that wraps across a
@@ -152,6 +169,36 @@ NUMBER_FORMS = [
 ]
 
 
+# Where "عدد" is missing entirely the number follows the kind of decision:
+# "قرار تعقيبي 2020/74361", "قرار تعقيبي مدني 47382".
+KIND = r"(?:تعقيبي|المجتمعة|مدني|جزائي|تجاري|شخصي|اجتماعي|عقاري)"
+BARE_FORMS = [
+    (rf"{KIND}\s*(\d{{2,6}})\s*[/.]\s*(\d{{2,6}})(?!\d)", "pair"),
+    (rf"{KIND}\s*(\d{{2,6}})(?!\d)", "plain"),
+    # "قرارر تعقيبي 86356 عدد" -- the number ahead of the word for it.
+    (r"(\d{2,6})\s*عدد", "plain"),
+]
+
+
+def _is_year(value):
+    return bool(re.fullmatch(r"(?:19|20)\d{2}", value)) and 1990 <= int(value) <= 2030
+
+
+def _split_pair(a, b):
+    """Decide which half of "X/Y" is the case number and which the year.
+
+    Joined files give two case numbers ("46727 / 46728"); a number printed with
+    its year of registration gives one of each, in either order.
+    """
+    if _is_year(a) and not _is_year(b):
+        return [b], a
+    if _is_year(b) and not _is_year(a):
+        return [a], b
+    if _is_year(a) and _is_year(b):
+        return [a], b
+    return [a, b], ""
+
+
 def citation_numbers(citation):
     """Case number(s) and year of registration, from a report's citation line."""
     folded = C.fold(citation)
@@ -162,9 +209,17 @@ def citation_numbers(citation):
         if kind == "year_first":
             return [m.group(2)], m.group(1)
         if kind == "joined":
-            return [m.group(1), m.group(2)], ""
+            return _split_pair(m.group(1), m.group(2))
         if kind == "with_year":
             return [m.group(1)], m.group(2)
+        return [m.group(1)], ""
+
+    for pattern, kind in BARE_FORMS:
+        m = re.search(pattern, folded)
+        if not m:
+            continue
+        if kind == "pair":
+            return _split_pair(m.group(1), m.group(2))
         return [m.group(1)], ""
     return [], ""
 

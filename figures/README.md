@@ -9,9 +9,9 @@ data and they regenerate.
 |---|---|
 | `extraction-quality` | Why 16 of the 27 judgments are read by OCR rather than from their own text layer. Each judgment is a point: agreement with OCR on words against agreement on numbers, with both thresholds drawn. The four named files are the reason numbers are scored separately — they decode every letter correctly and every digit wrong. |
 | `corpus-coverage` | What share of each variable the two sources actually state. The honest map of what the dataset can answer: the reports name no bench for a plenary sitting, and their extracts stop before the disposition. |
-| `decisions-by-year` | The 512 distinct decisions by year of decision, split by formation. Reads as a warning, not a trend: coverage tracks which annual reports exist. |
+| `decisions-by-year` | The 536 distinct decisions by year of decision, split by formation. Reads as a warning, not a trend: coverage tracks which annual reports exist. |
 | `subject-matter` | Areas of law, split by formation. `subject_matter` is inferred from legal vocabulary, not stated by the court. |
-| `chambers` | Which of the court's chambers appear, among the 383 decisions that name one. |
+| `chambers` | Which of the court's chambers appear, among the 395 decisions that name one. |
 
 ## Conventions
 
